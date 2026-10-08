@@ -17,6 +17,7 @@ public:
     void put(const std::string& key, const Entry& entry);
 
     void erase(const std::string& key);
+    void clear();
 
     std::vector<std::string> listKeys() const;
 

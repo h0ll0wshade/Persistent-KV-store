@@ -14,6 +14,10 @@ void KeyDir::erase(const std::string& key) {
     kv.erase(key);
 }
 
+void KeyDir::clear() {
+    kv.clear();
+}
+
 std::vector<std::string> KeyDir::listKeys() const {
     std::vector<std::string> keys;
     keys.reserve(kv.size());

@@ -11,6 +11,8 @@ Build a standalone persistent, log-structured key-value engine in C++17. Append-
 - **LogFile** owns one POSIX file descriptor using RAII. It appends records and reads values or complete records with positional I/O. It handles short I/O and `EINTR`, detects invalid/truncated records, and is non-copyable with safe move semantics.
 - **KeyDir** is an in-memory `unordered_map<string, Entry>` with average O(1) lookup. It does no disk I/O.
 - **CrudOperations** handles the PUT/GET/DELETE/list/sync workflows. It coordinates `LogFile` and `KeyDir`, and updates the index only after a successful append.
+- **LogManager** discovers and owns numbered log files, selects the highest ID as active, and routes reads by file ID. Rotation is not implemented yet.
+- **RecoveryManager** rebuilds KeyDir at startup by replaying logs from byte zero in numeric file-ID order. Its scan cursor is temporary and is never saved.
 - **KVStore** is the client-facing API facade. It forwards calls to `CrudOperations`; its private implementation only creates and owns the current component instances. It must not accumulate storage algorithms.
 
 ## Operation flows
@@ -18,7 +20,7 @@ Build a standalone persistent, log-structured key-value engine in C++17. Append-
 - PUT asks `CrudOperations` to append a PUT record, then update KeyDir with the returned Entry, then apply the configured sync policy.
 - GET asks `CrudOperations` to look up the Entry and read the value bytes from its log, returning an optional value.
 - DELETE asks `CrudOperations` to append a tombstone, then remove the key from KeyDir.
-- Recovery discovers log files, orders them by file ID, scans valid records, and rebuilds KeyDir. PUT records replace prior locations; DELETE records erase keys.
+- Recovery scans each discovered log from beginning to end. PUT records replace prior locations; DELETE records erase keys. If bytes are malformed, recovery advances one byte and searches for the next structurally plausible record.
 
 ## File lifecycle and compaction
 
@@ -38,7 +40,7 @@ The final API also supports `fold(callback)` for live key/value iteration and `s
 ## Reliability, lifecycle, and concurrency targets
 
 - Correct partial `pread`/`pwrite` handling, `EINTR` retries, descriptor ownership, and bounds checks.
-- Startup recovery truncates only an incomplete tail in the newest active log. Corruption elsewhere fails open.
+- Startup recovery never modifies log files. It uses best-effort byte-by-byte resynchronization after malformed or incomplete bytes; without record framing or checksums, this can mistake data bytes for a record.
 - Record checksums use CRC32 in the versioned final format. The current native header is transitional; development-only files do not require migration.
 - Rotation maintains exactly one active file and leaves immutable files readable.
 - Compaction processes immutable files, publishes complete outputs before deleting source files, and remains recoverable after interruption.
@@ -51,9 +53,9 @@ The final API also supports `fold(callback)` for live key/value iteration and `s
 ```text
 AGENTS.md
 CMakeLists.txt
-includes/{records,entry,logfile,kvdir,crud_operations,kvstore,options}.h
-src/{records.cpp,logfile.cpp,kvdir.cpp,crud_operations.cpp,kvstore.cpp,main.cpp}
-tests/{test_record,test_logfile,test_kvdir,test_crud_operations,test_kvstore,test_recovery,test_compaction,test_concurrency}.cpp
+includes/{records,entry,logfile,log_manager,recovery_manager,kvdir,crud_operations,kvstore,options}.h
+src/{records.cpp,logfile.cpp,log_manager.cpp,recovery_manager.cpp,kvdir.cpp,crud_operations.cpp,kvstore.cpp,main.cpp}
+tests/{test_record,test_logfile,test_log_manager,test_kvdir,test_crud_operations,test_kvstore,test_recovery,test_compaction,test_concurrency}.cpp
 benchmarks/benchmark.cpp
 README.md
 ```
@@ -63,7 +65,7 @@ Names may evolve when a clearer module boundary is needed. Keep the implementati
 ## Implementation roadmap
 
 1. **Core storage:** CMake/CTest, Record and Entry foundations, robust LogFile, KeyDir, one `CrudOperations` component, and a forwarding KVStore facade. Verify serialization, offsets, value reads, index behavior, failed-append ordering, and CRUD.
-2. **Persistence:** add a separate recovery component to discover logs, scan records, rebuild the index, restore the active file, handle incomplete tails, and test restart behavior.
+2. **Persistence:** discover numbered logs, replay all records to rebuild the index, route reads by file ID, and test restart behavior. Recovery starts over from byte zero on every open and does not truncate or rewrite logs.
 3. **Rotation and compaction:** keep log lifecycle and rotation together in a dedicated log-management component; add a separate compaction component for safe manual rewrites, then an independent background worker that schedules it.
 4. **Reliability and concurrency:** keep checksum/encoding rules in the record codec, sync policy in durability handling, process locking in an RAII lock component, and thread coordination in a dedicated synchronization boundary.
 5. **API and measurement:** add close/fold/stats, benchmark PUT throughput, GET latency percentiles, recovery and compaction time/space, thread scaling, sync overhead, and documentation of tradeoffs.
@@ -74,7 +76,7 @@ The standalone benchmark reports PUT operations per second; GET p50, p95, and p9
 
 ## Current implementation boundary
 
-The first core-storage stage uses `KVStore` as a forwarding facade and `CrudOperations` as the only operation coordinator. The facade's private implementation is a composition/lifetime owner, not a general-purpose engine. `CrudOperations` currently receives one `KeyDir` and one active `LogFile`; it does not discover files or perform rotation. The store does not scan prior records into the index on construction, so reopening an existing database is not recovery and old keys are not visible until the persistence phase is implemented. Do not present this stage as crash-recoverable or thread-safe.
+The current implementation uses `KVStore` as a forwarding facade, `CrudOperations` for CRUD coordination, `LogManager` for the discovered log set, and `RecoveryManager` for startup replay. It scans every numbered log from byte zero and does not save scan positions or modify log contents. Resynchronization after malformed bytes is best-effort because the current native record format has no marker or checksum; a false record may be accepted. Rotation, compaction, checksums, process locking, and thread safety are not implemented yet.
 
 ## Development rules
 

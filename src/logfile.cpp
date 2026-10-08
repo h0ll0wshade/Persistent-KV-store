@@ -137,18 +137,18 @@ std::optional<Record> LogFile::readRecord(uint64_t offset) const {
     if (fd == -1) throw std::runtime_error("Cannot scan a closed log file");
     if (offset == metadata.size) return std::nullopt;
     if (offset > metadata.size || metadata.size - offset < sizeof(RecordHeader))
-        throw std::runtime_error("Truncated record header");
+        throw RecordFormatError("Truncated record header");
 
     RecordHeader header{};
     preadAll(fd, &header, sizeof(header), offset);
     if (header.type != static_cast<uint8_t>(RecordType::Put) &&
         header.type != static_cast<uint8_t>(RecordType::Delete))
-        throw std::runtime_error("Invalid record type");
+        throw RecordFormatError("Invalid record type");
     const uint64_t body_size = static_cast<uint64_t>(header.key_size) + header.value_size;
     if (body_size > metadata.size - offset - sizeof(header))
-        throw std::runtime_error("Truncated record body");
+        throw RecordFormatError("Truncated record body");
     if (header.type == static_cast<uint8_t>(RecordType::Delete) && header.value_size != 0)
-        throw std::runtime_error("Delete record has a value");
+        throw RecordFormatError("Delete record has a value");
 
     Record record{header, std::string(header.key_size, '\0'), std::string(header.value_size, '\0')};
     uint64_t body_offset = offset + sizeof(header);

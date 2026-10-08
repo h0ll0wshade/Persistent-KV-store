@@ -9,8 +9,8 @@
 int main() {
     TempDirectory directory;
     KeyDir keydir;
-    LogFile log(directory.path() + "/crud.log", 4, true);
-    CrudOperations crud(keydir, log);
+    LogManager logs(directory.path());
+    CrudOperations crud(keydir, logs);
 
     check(!crud.get("missing"), "missing key should return no value");
     crud.put("fruit", "apple");
@@ -30,9 +30,9 @@ int main() {
     crud.sync();
 
     KeyDir unchanged_index;
-    LogFile failed_log(directory.path() + "/failed.log", 5, true);
-    LogFile moved_log(std::move(failed_log));
-    CrudOperations failing_crud(unchanged_index, failed_log);
+    LogManager failed_logs(directory.path() + "/failure-case");
+    LogFile moved_log(std::move(failed_logs.activeLog()));
+    CrudOperations failing_crud(unchanged_index, failed_logs);
     bool append_failed = false;
     try { failing_crud.put("not-written", "value"); }
     catch (const std::runtime_error&) { append_failed = true; }
