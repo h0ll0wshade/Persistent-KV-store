@@ -17,6 +17,10 @@ target_compile_features(bitcask_kv PUBLIC cxx_std_17)
 target_include_directories(bitcask_kv PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/includes)
 target_compile_options(bitcask_kv PRIVATE -Wall -Wextra -Wpedantic)
 
+add_executable(bitcask_demo main.cpp)
+target_link_libraries(bitcask_demo PRIVATE bitcask_kv)
+target_compile_options(bitcask_demo PRIVATE -Wall -Wextra -Wpedantic)
+
 include(CTest)
 if(BUILD_TESTING)
     foreach(test_name IN ITEMS record logfile kvdir crud_operations recovery kvstore)

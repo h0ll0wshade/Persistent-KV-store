@@ -35,6 +35,8 @@ The target API uses `put`, `get`, `erase`, `listKeys`, `sync`, `compact`, and `c
 
 Options will include a 64 MiB default maximum log size, `sync_on_put = false`, `read_only = false`, and opt-in background compaction. A successful write with sync disabled is not promised durable until `sync()` or a later sync-enabled operation.
 
+`main.cpp` is an interactive demo client, not part of the storage library. Keep it limited to parsing commands and calling the public `KVStore` API; do not put storage behavior there.
+
 The final API also supports `fold(callback)` for live key/value iteration and `stats()` for file count, bytes, live-key count, and reclaimable-space estimates. A read-only open does not create or mutate database files. Process locking prevents a second writer from opening the same directory.
 
 ## Reliability, lifecycle, and concurrency targets
