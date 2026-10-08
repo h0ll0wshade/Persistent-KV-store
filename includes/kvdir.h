@@ -5,17 +5,20 @@
 #include <optional>
 #include <string>
 #include <unordered_map>
+#include <vector>
 
 class KeyDir {
 private:
     std::unordered_map<std::string, Entry> kv;
 
 public:
-    std::string get(const std::string& key) const;
+    std::optional<Entry> get(const std::string& key) const;
 
-    void post(const std::string& key, const Entry& entry);
+    void put(const std::string& key, const Entry& entry);
 
-    void del(const std::string& key);
+    void erase(const std::string& key);
+
+    std::vector<std::string> listKeys() const;
 
     // Recovery functionality will be implemented later.
     // void rebuild(...);

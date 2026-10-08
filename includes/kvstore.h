@@ -1,9 +1,5 @@
 #pragma once
 
-#include "kvdir.h"
-#include "logfile.h"
-
-#include <cstddef>
 #include <memory>
 #include <optional>
 #include <string>
@@ -11,21 +7,24 @@
 
 class KVStore {
 private:
-    KeyDir keydir;
-
-    std::vector<std::unique_ptr<LogFile>> logFiles;
-
-    size_t log_sz;
+    struct Impl;
+    std::unique_ptr<Impl> impl;
 
 public:
     KVStore(const std::string& directory);
     ~KVStore();
 
-    void post(const std::string& key, const std::string& value);
+    KVStore(const KVStore&) = delete;
+    KVStore& operator=(const KVStore&) = delete;
+    KVStore(KVStore&&) = delete;
+    KVStore& operator=(KVStore&&) = delete;
 
-    std::string get(const std::string& key);
+    void put(const std::string& key, const std::string& value);
 
-    void del(const std::string& key);
+    std::optional<std::string> get(const std::string& key) const;
 
-    std::vector<std::string> listKeys();
+    void erase(const std::string& key);
+
+    std::vector<std::string> listKeys() const;
+    void sync();
 };
