@@ -167,14 +167,11 @@ void CompactionManager::compact() {
         std::error_code error;
         std::filesystem::rename(output.temporary_path, final_path, error);
         if (error) throw std::runtime_error("Failed to publish compacted log: " + error.message());
+        output.file.reset();
+        logs.addImmutableLog(output.file_id, final_path.string());
         published_paths.push_back(final_path);
     }
     if (!published_paths.empty()) syncDirectory(logs.directoryPath());
-
-    for (size_t index = 0; index < staged.size(); ++index) {
-        staged[index].file.reset();
-        logs.addImmutableLog(staged[index].file_id, published_paths[index].string());
-    }
 
     // Rebuild output locations from the durable, published records before deleting sources.
     std::vector<LogFile*> compacted_logs;
