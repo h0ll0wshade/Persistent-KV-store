@@ -1,6 +1,7 @@
 #pragma once
 
 #include "logfile.h"
+#include "options.h"
 
 #include <cstdint>
 #include <map>
@@ -11,7 +12,7 @@
 // Owns the discovered log files and routes operations by file ID.
 class LogManager {
 public:
-    explicit LogManager(const std::string& directory);
+    explicit LogManager(const std::string& directory, const Options& options = {});
 
     LogFile& activeLog();
     LogFile& file(uint32_t file_id) const;
@@ -23,4 +24,8 @@ public:
 private:
     std::map<uint32_t, std::unique_ptr<LogFile>> files;
     uint32_t active_file_id;
+    std::string directory;
+    uint64_t max_file_size;
+
+    void rotateLogFile();
 };

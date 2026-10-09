@@ -5,13 +5,15 @@
 #include <string>
 #include <vector>
 
+#include "options.h"
+
 class KVStore {
 private:
     struct Impl;
     std::unique_ptr<Impl> impl;
 
 public:
-    KVStore(const std::string& directory);
+    explicit KVStore(const std::string& directory, const Options& options = {});
     ~KVStore();
 
     KVStore(const KVStore&) = delete;

@@ -12,13 +12,14 @@ struct KVStore::Impl {
     RecoveryManager recovery;
     CrudOperations crud;
 
-    explicit Impl(const std::string& directory)
-        : keydir(), logs(directory), recovery(), crud(keydir, logs) {
+    explicit Impl(const std::string& directory, const Options& options)
+        : keydir(), logs(directory, options), recovery(), crud(keydir, logs) {
         recovery.recover(logs, keydir);
     }
 };
 
-KVStore::KVStore(const std::string& directory) : impl(std::make_unique<Impl>(directory)) {}
+KVStore::KVStore(const std::string& directory, const Options& options)
+    : impl(std::make_unique<Impl>(directory, options)) {}
 
 KVStore::~KVStore() = default;
 

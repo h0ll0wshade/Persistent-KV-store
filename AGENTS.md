@@ -11,7 +11,7 @@ Build a standalone persistent, log-structured key-value engine in C++17. Append-
 - **LogFile** owns one POSIX file descriptor using RAII. It appends records and reads values or complete records with positional I/O. It handles short I/O and `EINTR`, detects invalid/truncated records, and is non-copyable with safe move semantics.
 - **KeyDir** is an in-memory `unordered_map<string, Entry>` with average O(1) lookup. It does no disk I/O.
 - **CrudOperations** handles the PUT/GET/DELETE/list/sync workflows. It coordinates `LogFile` and `KeyDir`, and updates the index only after a successful append.
-- **LogManager** discovers and owns numbered log files, selects the highest ID as active, and routes reads by file ID. Rotation is not implemented yet.
+- **LogManager** discovers and owns numbered log files, selects the highest ID as active, routes reads by file ID, and rotates before an append would exceed the configured size limit.
 - **RecoveryManager** rebuilds KeyDir at startup by replaying logs from byte zero in numeric file-ID order. Its scan cursor is temporary and is never saved.
 - **KVStore** is the client-facing API facade. It forwards calls to `CrudOperations`; its private implementation only creates and owns the current component instances. It must not accumulate storage algorithms.
 
@@ -24,7 +24,7 @@ Build a standalone persistent, log-structured key-value engine in C++17. Append-
 
 ## File lifecycle and compaction
 
-- Name logs with zero-padded, monotonically increasing IDs, such as `000001.log`. Exactly one log is active; older logs are immutable. Rotate before an append would take the active file past the configured 64 MiB default.
+- Name logs with zero-padded, monotonically increasing IDs, such as `000001.log`. Exactly one log is active; older logs are immutable. Rotate before an append would take the active file past the configured 64 MiB default. An oversized record is allowed in an empty log and the following append rotates.
 - Recovery sorts discovered IDs numerically, reads records in serialized-size order, and restores the newest active log and its append position. A valid PUT updates the index to the value bytes; a tombstone removes the key.
 - Manual compaction selects immutable logs, keeps only records whose locations are still the current live entries, writes replacement records to temporary output files, syncs and publishes all outputs, then removes source logs. A crash before publication leaves source logs intact; temporary files are ignored. A crash during cleanup is safe because published outputs contain the retained live values.
 - Background compaction is a later opt-in feature and uses the same compaction path under exclusive coordination. The initial practical trigger is four or more immutable files; configuration can be added if measurements justify it.
@@ -68,7 +68,7 @@ Names may evolve when a clearer module boundary is needed. Keep the implementati
 
 1. **Core storage:** CMake/CTest, Record and Entry foundations, robust LogFile, KeyDir, one `CrudOperations` component, and a forwarding KVStore facade. Verify serialization, offsets, value reads, index behavior, failed-append ordering, and CRUD.
 2. **Persistence:** discover numbered logs, replay all records to rebuild the index, route reads by file ID, and test restart behavior. Recovery starts over from byte zero on every open and does not truncate or rewrite logs.
-3. **Rotation and compaction:** keep log lifecycle and rotation together in a dedicated log-management component; add a separate compaction component for safe manual rewrites, then an independent background worker that schedules it.
+3. **Rotation and compaction:** log rotation is implemented in `LogManager`; add a separate compaction component for safe manual rewrites, then an independent background worker that schedules it.
 4. **Reliability and concurrency:** keep checksum/encoding rules in the record codec, sync policy in durability handling, process locking in an RAII lock component, and thread coordination in a dedicated synchronization boundary.
 5. **API and measurement:** add close/fold/stats, benchmark PUT throughput, GET latency percentiles, recovery and compaction time/space, thread scaling, sync overhead, and documentation of tradeoffs.
 
@@ -78,7 +78,7 @@ The standalone benchmark reports PUT operations per second; GET p50, p95, and p9
 
 ## Current implementation boundary
 
-The current implementation uses `KVStore` as a forwarding facade, `CrudOperations` for CRUD coordination, `LogManager` for the discovered log set, and `RecoveryManager` for startup replay. It scans every numbered log from byte zero and does not save scan positions or modify log contents. Resynchronization after malformed bytes is best-effort because the current native record format has no marker or checksum; a false record may be accepted. Rotation, compaction, checksums, process locking, and thread safety are not implemented yet.
+The current implementation uses `KVStore` as a forwarding facade, `CrudOperations` for CRUD coordination, `LogManager` for the discovered log set and rotation, and `RecoveryManager` for startup replay. It scans every numbered log from byte zero and does not save scan positions or modify log contents. Resynchronization after malformed bytes is best-effort because the current native record format has no marker or checksum; a false record may be accepted. Manual compaction, checksums, process locking, and thread safety are not implemented yet. `Options::max_file_size` defaults to 64 MiB. Directory entries are synced when the initial or a rotated log file is created; configurable sync-on-write is not implemented yet.
 
 ## Development rules
 
