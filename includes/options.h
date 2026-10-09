@@ -4,4 +4,6 @@
 
 struct Options {
     uint64_t max_file_size = 64ULL * 1024ULL * 1024ULL;
+    // Sync each successful mutation (PUT or DELETE tombstone) before returning.
+    bool sync_on_put = false;
 };

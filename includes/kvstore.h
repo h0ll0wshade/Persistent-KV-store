@@ -28,6 +28,7 @@ public:
     void erase(const std::string& key);
 
     std::vector<std::string> listKeys() const;
+    // Flush all log files and database-directory metadata.
     void sync();
     void compact();
 };

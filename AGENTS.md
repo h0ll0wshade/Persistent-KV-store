@@ -34,7 +34,7 @@ Build a standalone persistent, log-structured key-value engine in C++17. Append-
 
 The target API uses `put`, `get`, `erase`, `listKeys`, `sync`, `compact`, and `close`, with `fold` and `stats` added in the later API phase. Opening may use a constructor or `open(directory, options)`. Use `put`/`erase` as the primary names; do not add legacy `post`/`del` aliases. I/O and invalid database state are reported with exceptions. Optional results represent missing keys.
 
-Options will include a 64 MiB default maximum log size, `sync_on_put = false`, `read_only = false`, and opt-in background compaction. A successful write with sync disabled is not promised durable until `sync()` or a later sync-enabled operation.
+Options include a 64 MiB default maximum log size and `sync_on_put = false`; `read_only = false` and opt-in background compaction remain future additions. A successful mutation with sync disabled is not promised durable until `sync()`; `sync_on_put` flushes the active log after each mutation. Explicit sync flushes all log descriptors and the database directory. Directory metadata is synced after database-directory creation, log creation, compaction output publication, and each source-file removal.
 
 `main.cpp` is an interactive demo client, not part of the storage library. Keep it limited to parsing commands and calling the public `KVStore` API; do not put storage behavior there.
 
@@ -79,7 +79,7 @@ The standalone benchmark reports PUT operations per second; GET p50, p95, and p9
 
 ## Current implementation boundary
 
-The current implementation uses `KVStore` as a forwarding facade, `CrudOperations` for CRUD coordination, `LogManager` for the discovered log set and rotation, `CompactionManager` for manual compaction, and `RecoveryManager` for startup replay. It scans every numbered log from byte zero and does not save scan positions or modify log contents during recovery. Resynchronization after malformed bytes is best-effort because the current native record format has no marker or checksum; a false record may be accepted. Checksums, process locking, and thread safety are not implemented yet. `Options::max_file_size` defaults to 64 MiB. Directory entries are synced during initial/rotated log creation and compaction publication/cleanup; configurable sync-on-write is not implemented yet.
+The current implementation uses `KVStore` as a forwarding facade, `CrudOperations` for CRUD coordination, `LogManager` for the discovered log set and rotation, `CompactionManager` for manual compaction, and `RecoveryManager` for startup replay. It scans every numbered log from byte zero and does not save scan positions or modify log contents during recovery. Resynchronization after malformed bytes is best-effort because the current native record format has no marker or checksum; a false record may be accepted. Checksums, process locking, and thread safety are not implemented yet. `Options::max_file_size` defaults to 64 MiB and `Options::sync_on_put` defaults to false. With sync-on-put enabled, PUT and DELETE tombstone writes fsync their active log before returning. Explicit `sync()` flushes every log and directory metadata. Directory entries are synced during initial/rotated log creation and compaction publication/cleanup.
 
 ## Development rules
 

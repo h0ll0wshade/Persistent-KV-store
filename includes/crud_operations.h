@@ -2,6 +2,7 @@
 
 #include "kvdir.h"
 #include "log_manager.h"
+#include "options.h"
 
 #include <optional>
 #include <string>
@@ -10,7 +11,7 @@
 // Coordinates CRUD operations across the in-memory index and active log.
 class CrudOperations {
 public:
-    CrudOperations(KeyDir& keydir, LogManager& logs);
+    CrudOperations(KeyDir& keydir, LogManager& logs, const Options& options = {});
 
     void put(const std::string& key, const std::string& value);
     std::optional<std::string> get(const std::string& key) const;
@@ -21,4 +22,5 @@ public:
 private:
     KeyDir& keydir;
     LogManager& logs;
+    bool sync_on_put;
 };

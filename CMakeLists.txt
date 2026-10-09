@@ -25,7 +25,7 @@ target_compile_options(bitcask_demo PRIVATE -Wall -Wextra -Wpedantic)
 
 include(CTest)
 if(BUILD_TESTING)
-    foreach(test_name IN ITEMS record logfile kvdir crud_operations recovery kvstore rotation compaction)
+    foreach(test_name IN ITEMS record logfile kvdir crud_operations recovery kvstore rotation compaction durability)
         add_executable(test_${test_name} tests/test_${test_name}.cpp)
         target_link_libraries(test_${test_name} PRIVATE bitcask_kv)
         target_compile_options(test_${test_name} PRIVATE -Wall -Wextra -Wpedantic)

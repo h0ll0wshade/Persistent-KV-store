@@ -60,15 +60,38 @@ std::filesystem::path logPath(const std::filesystem::path& directory, uint32_t f
     filename << std::setw(6) << std::setfill('0') << file_id << ".log";
     return directory / filename.str();
 }
+
+void createDirectoriesDurably(const std::filesystem::path& directory) {
+    std::vector<std::filesystem::path> missing;
+    auto current = directory;
+    std::error_code error;
+    while (!current.empty() && !std::filesystem::exists(current, error)) {
+        if (error) throw std::runtime_error("Failed to inspect database directory: " + error.message());
+        missing.push_back(current);
+        const auto parent = current.parent_path();
+        if (parent == current) break;
+        current = parent;
+    }
+    if (error) throw std::runtime_error("Failed to inspect database directory: " + error.message());
+
+    std::filesystem::create_directories(directory, error);
+    if (error) throw std::runtime_error("Failed to create database directory: " + error.message());
+
+    // Each child entry lives in its parent directory. Sync from the closest
+    // existing ancestor down through the newly created path.
+    for (const auto& created : missing) {
+        auto parent = created.parent_path();
+        if (parent.empty()) parent = ".";
+        syncDirectory(parent.string());
+    }
+}
 }
 
 LogManager::LogManager(const std::string& directory_path, const Options& options)
     : active_file_id(0), directory(directory_path), max_file_size(options.max_file_size) {
     if (max_file_size == 0) throw std::invalid_argument("max_file_size must be greater than zero");
     const std::filesystem::path root(directory_path);
-    std::error_code error;
-    std::filesystem::create_directories(root, error);
-    if (error) throw std::runtime_error("Failed to create database directory: " + error.message());
+    createDirectoriesDurably(root);
 
     auto discovered = discoverLogs(root);
     const bool creating_initial_log = discovered.empty();
@@ -173,4 +196,5 @@ std::vector<LogFile*> LogManager::filesInOrder() const {
 
 void LogManager::syncAll() {
     for (auto& item : files) item.second->sync();
+    syncDirectory(directory);
 }

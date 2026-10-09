@@ -12,12 +12,13 @@ Record makeRecord(RecordType type, const std::string& key, const std::string& va
 }
 }
 
-CrudOperations::CrudOperations(KeyDir& index, LogManager& log_manager)
-    : keydir(index), logs(log_manager) {}
+CrudOperations::CrudOperations(KeyDir& index, LogManager& log_manager, const Options& options)
+    : keydir(index), logs(log_manager), sync_on_put(options.sync_on_put) {}
 
 void CrudOperations::put(const std::string& key, const std::string& value) {
     const Entry entry = logs.appendToActive(makeRecord(RecordType::Put, key, value));
     keydir.put(key, entry);
+    if (sync_on_put) logs.activeLog().sync();
 }
 
 std::optional<std::string> CrudOperations::get(const std::string& key) const {
@@ -29,6 +30,7 @@ std::optional<std::string> CrudOperations::get(const std::string& key) const {
 void CrudOperations::erase(const std::string& key) {
     logs.appendToActive(makeRecord(RecordType::Delete, key, std::string{}));
     keydir.erase(key);
+    if (sync_on_put) logs.activeLog().sync();
 }
 
 std::vector<std::string> CrudOperations::listKeys() const {

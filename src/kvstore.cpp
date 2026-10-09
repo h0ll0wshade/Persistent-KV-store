@@ -15,7 +15,8 @@ struct KVStore::Impl {
     CrudOperations crud;
 
     explicit Impl(const std::string& directory, const Options& options)
-        : keydir(), logs(directory, options), recovery(), compaction(keydir, logs), crud(keydir, logs) {
+        : keydir(), logs(directory, options), recovery(), compaction(keydir, logs),
+          crud(keydir, logs, options) {
         recovery.recover(logs, keydir);
     }
 };
