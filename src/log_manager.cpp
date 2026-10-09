@@ -109,12 +109,55 @@ void LogManager::rotateLogFile() {
     if (active_file_id == std::numeric_limits<uint32_t>::max())
         throw std::overflow_error("Log file ID space exhausted");
 
-    const uint32_t next_id = active_file_id + 1;
-    const auto path = logPath(directory, next_id);
-    auto next = std::make_unique<LogFile>(path.string(), next_id, true);
+    createActiveLog(active_file_id + 1);
+}
+
+void LogManager::rotate() {
+    rotateLogFile();
+}
+
+uint32_t LogManager::highestFileId() const {
+    return files.empty() ? 0 : files.rbegin()->first;
+}
+
+uint64_t LogManager::maxFileSize() const {
+    return max_file_size;
+}
+
+const std::string& LogManager::directoryPath() const {
+    return directory;
+}
+
+void LogManager::createActiveLog(uint32_t file_id) {
+    if (file_id <= highestFileId())
+        throw std::invalid_argument("New active log ID must be greater than existing IDs");
+    const auto path = logPath(directory, file_id);
+    auto next = std::make_unique<LogFile>(path.string(), file_id, true);
     syncDirectory(directory);
-    files.emplace(next_id, std::move(next));
-    active_file_id = next_id;
+    files.emplace(file_id, std::move(next));
+    active_file_id = file_id;
+}
+
+void LogManager::addImmutableLog(uint32_t file_id, const std::string& path) {
+    if (files.find(file_id) != files.end())
+        throw std::invalid_argument("Log file ID is already registered");
+    auto log = std::make_unique<LogFile>(path, file_id, false);
+    files.emplace(file_id, std::move(log));
+}
+
+void LogManager::removeLog(uint32_t file_id) {
+    if (file_id == active_file_id)
+        throw std::invalid_argument("Cannot remove the active log file");
+    const auto found = files.find(file_id);
+    if (found == files.end()) return;
+
+    const auto path = logPath(directory, file_id);
+    std::error_code error;
+    const bool removed = std::filesystem::remove(path, error);
+    if (error) throw std::runtime_error("Failed to remove log file: " + error.message());
+    if (!removed) throw std::runtime_error("Expected log file was missing during removal");
+    files.erase(found);
+    syncDirectory(directory);
 }
 
 std::string LogManager::read(const Entry& entry) const {

@@ -1,5 +1,6 @@
 #include "kvstore.h"
 
+#include "compaction_manager.h"
 #include "crud_operations.h"
 #include "kvdir.h"
 #include "log_manager.h"
@@ -10,10 +11,11 @@ struct KVStore::Impl {
     KeyDir keydir;
     LogManager logs;
     RecoveryManager recovery;
+    CompactionManager compaction;
     CrudOperations crud;
 
     explicit Impl(const std::string& directory, const Options& options)
-        : keydir(), logs(directory, options), recovery(), crud(keydir, logs) {
+        : keydir(), logs(directory, options), recovery(), compaction(keydir, logs), crud(keydir, logs) {
         recovery.recover(logs, keydir);
     }
 };
@@ -41,4 +43,8 @@ std::vector<std::string> KVStore::listKeys() const {
 
 void KVStore::sync() {
     impl->crud.sync();
+}
+
+void KVStore::compact() {
+    impl->compaction.compact();
 }

@@ -29,4 +29,5 @@ public:
 
     std::vector<std::string> listKeys() const;
     void sync();
+    void compact();
 };
