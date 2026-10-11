@@ -4,6 +4,7 @@
 #include "kvdir.h"
 #include "log_manager.h"
 #include "logfile.h"
+#include "record_codec.h"
 
 #include <algorithm>
 #include <cerrno>
@@ -68,7 +69,7 @@ bool isCurrentLiveRecord(const LogFile& log, uint64_t offset,
     if (record.header.type != static_cast<uint8_t>(RecordType::Put)) return false;
     const auto current = keydir.get(record.key);
     if (!current) return false;
-    const uint64_t value_pos = offset + sizeof(RecordHeader) + record.header.key_size;
+    const uint64_t value_pos = offset + RecordCodec::kHeaderSize + record.header.key_size;
     return current->file_id == log.fileId() && current->value_pos == value_pos &&
            current->value_size == record.header.value_size;
 }
@@ -81,7 +82,7 @@ void visitCurrentRecords(const std::vector<LogFile*>& source_logs,
         while (offset < log->size()) {
             const auto record = log->readRecord(offset);
             if (!record) break;
-            const uint64_t record_size = sizeof(RecordHeader) + record->header.key_size +
+            const uint64_t record_size = RecordCodec::kHeaderSize + record->header.key_size +
                                          static_cast<uint64_t>(record->header.value_size);
             if (isCurrentLiveRecord(*log, offset, *record, keydir))
                 callback(*record, record_size);
@@ -182,10 +183,10 @@ void CompactionManager::compact() {
         while (offset < log->size()) {
             const auto record = log->readRecord(offset);
             if (!record) break;
-            const uint64_t value_pos = offset + sizeof(RecordHeader) + record->header.key_size;
+            const uint64_t value_pos = offset + RecordCodec::kHeaderSize + record->header.key_size;
             keydir.put(record->key,
                        Entry{log->fileId(), value_pos, record->header.value_size});
-            offset += sizeof(RecordHeader) + record->header.key_size + record->header.value_size;
+            offset += RecordCodec::kHeaderSize + record->header.key_size + record->header.value_size;
         }
     }
 

@@ -1,4 +1,5 @@
 #include "logfile.h"
+#include "record_codec.h"
 #include "test_support.h"
 
 #include <cstdint>
@@ -12,7 +13,7 @@ int main() {
     input.value = "value";
     const Entry entry = file.append(input);
     check(entry.file_id == 7, "record should retain its file ID");
-    check(entry.value_pos == sizeof(RecordHeader) + input.key.size(), "entry should point at value bytes");
+    check(entry.value_pos == RecordCodec::kHeaderSize + input.key.size(), "entry should point at value bytes");
     const auto decoded = file.readRecord(0);
     check(decoded.has_value(), "record should be readable");
     check(decoded->header.key_size == input.key.size(), "key size should be serialized");

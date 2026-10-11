@@ -3,6 +3,7 @@
 #include "kvdir.h"
 #include "log_manager.h"
 #include "logfile.h"
+#include "record_codec.h"
 
 #include <cstdint>
 
@@ -18,7 +19,7 @@ void RecoveryManager::recover(LogManager& logs, KeyDir& keydir) const {
                 const auto record = log->readRecord(offset);
                 if (!record) break;
 
-                const uint64_t value_pos = offset + sizeof(RecordHeader) + record->header.key_size;
+                const uint64_t value_pos = offset + RecordCodec::kHeaderSize + record->header.key_size;
                 if (record->header.type == static_cast<uint8_t>(RecordType::Put)) {
                     keydir.put(record->key,
                                Entry{log->fileId(), value_pos, record->header.value_size});
@@ -26,7 +27,7 @@ void RecoveryManager::recover(LogManager& logs, KeyDir& keydir) const {
                     keydir.erase(record->key);
                 }
 
-                offset += sizeof(RecordHeader) + record->header.key_size + record->header.value_size;
+                offset += RecordCodec::kHeaderSize + record->header.key_size + record->header.value_size;
             } catch (const RecordFormatError&) {
                 // This is best-effort resynchronization. The current native
                 // record format has no marker or checksum to identify a boundary.

@@ -1,5 +1,6 @@
 #include "kvstore.h"
 #include "records.h"
+#include "record_codec.h"
 #include "test_support.h"
 
 #include <filesystem>
@@ -21,7 +22,7 @@ size_t numberedLogs(const std::string& directory) {
 int main() {
     TempDirectory directory;
     Options options;
-    options.max_file_size = sizeof(RecordHeader) + 2;
+    options.max_file_size = RecordCodec::kHeaderSize + 2;
 
     size_t files_before = 0;
     {

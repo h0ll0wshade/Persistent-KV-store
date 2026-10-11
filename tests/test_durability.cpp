@@ -1,5 +1,6 @@
 #include "kvstore.h"
 #include "records.h"
+#include "record_codec.h"
 #include "test_support.h"
 
 #include <optional>
@@ -23,7 +24,7 @@ int main() {
 
     TempDirectory sync_on_put_directory;
     Options options;
-    options.max_file_size = sizeof(RecordHeader) + 2;
+    options.max_file_size = RecordCodec::kHeaderSize + 2;
     options.sync_on_put = true;
     {
         KVStore store(sync_on_put_directory.path(), options);

@@ -1,5 +1,6 @@
 #include "kvstore.h"
 #include "records.h"
+#include "record_codec.h"
 #include "test_support.h"
 
 #include <filesystem>
@@ -8,7 +9,7 @@
 int main() {
     TempDirectory directory;
     Options options;
-    const uint64_t one_record = sizeof(RecordHeader) + 1 + 1;
+    const uint64_t one_record = RecordCodec::kHeaderSize + 1 + 1;
     options.max_file_size = one_record * 2;
 
     {

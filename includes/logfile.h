@@ -1,6 +1,7 @@
 #pragma once
 
 #include "entry.h"
+#include "record_codec.h"
 #include "records.h"
 
 #include <cstdint>
@@ -12,11 +13,6 @@ struct FileMetadata {
     uint32_t file_id;
     uint64_t size;
     bool active;
-};
-
-class RecordFormatError : public std::runtime_error {
-public:
-    using std::runtime_error::runtime_error;
 };
 
 class LogFile {

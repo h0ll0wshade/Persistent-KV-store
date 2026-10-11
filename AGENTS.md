@@ -6,7 +6,7 @@ Build a standalone persistent, log-structured key-value engine in C++17. Append-
 
 ## Architecture
 
-- **Record** describes a PUT value or DELETE tombstone. Each log record is serialized as a native-layout `RecordHeader`, key bytes, then value bytes. A later reliability phase will add a versioned format and checksums.
+- **Record** describes a PUT value or DELETE tombstone. `RecordCodec` serializes each record into a fixed-width little-endian header with magic, version, lengths, CRC32 checksum, key bytes, and value bytes. `RecordHeader` is only an in-memory description.
 - **Entry** identifies a value by `file_id`, `value_pos`, and `value_size`. `value_pos` points to the first value byte, not the record or header.
 - **LogFile** owns one POSIX file descriptor using RAII. It appends records and reads values or complete records with positional I/O. It handles short I/O and `EINTR`, detects invalid/truncated records, and is non-copyable with safe move semantics.
 - **KeyDir** is an in-memory `unordered_map<string, Entry>` with average O(1) lookup. It does no disk I/O.
@@ -21,7 +21,7 @@ Build a standalone persistent, log-structured key-value engine in C++17. Append-
 - PUT asks `CrudOperations` to append a PUT record, then update KeyDir with the returned Entry, then apply the configured sync policy.
 - GET asks `CrudOperations` to look up the Entry and read the value bytes from its log, returning an optional value.
 - DELETE asks `CrudOperations` to append a tombstone, then remove the key from KeyDir.
-- Recovery scans each discovered log from beginning to end. PUT records replace prior locations; DELETE records erase keys. If bytes are malformed, recovery advances one byte and searches for the next structurally plausible record.
+- Recovery scans each discovered log from beginning to end. PUT records replace prior locations; DELETE records erase keys. If bytes are malformed or fail CRC32 validation, recovery advances one byte and searches for the next valid checksummed record.
 
 ## File lifecycle and compaction
 
@@ -34,7 +34,7 @@ Build a standalone persistent, log-structured key-value engine in C++17. Append-
 
 The target API uses `put`, `get`, `erase`, `listKeys`, `sync`, `compact`, and `close`, with `fold` and `stats` added in the later API phase. Opening may use a constructor or `open(directory, options)`. Use `put`/`erase` as the primary names; do not add legacy `post`/`del` aliases. I/O and invalid database state are reported with exceptions. Optional results represent missing keys.
 
-Options include a 64 MiB default maximum log size and `sync_on_put = false`; `read_only = false` and opt-in background compaction remain future additions. A successful mutation with sync disabled is not promised durable until `sync()`; `sync_on_put` flushes the active log after each mutation. Explicit sync flushes all log descriptors and the database directory. Directory metadata is synced after database-directory creation, log creation, compaction output publication, and each source-file removal.
+Options include a 64 MiB default maximum log size and `sync_on_put = false`; `read_only = false` and opt-in background compaction remain future additions. A successful mutation with sync disabled is not promised durable until `sync()`; `sync_on_put` flushes the active log after each mutation. Explicit sync flushes all log descriptors and the database directory. Directory metadata is synced after database-directory creation, log creation, compaction output publication, and each source-file removal. A `FORMAT` marker identifies the versioned checksummed format; opening populated databases without a supported marker fails without modifying their logs.
 
 `main.cpp` is an interactive demo client, not part of the storage library. Keep it limited to parsing commands and calling the public `KVStore` API; do not put storage behavior there.
 
@@ -43,8 +43,8 @@ The final API also supports `fold(callback)` for live key/value iteration and `s
 ## Reliability, lifecycle, and concurrency targets
 
 - Correct partial `pread`/`pwrite` handling, `EINTR` retries, descriptor ownership, and bounds checks.
-- Startup recovery never modifies log files. It uses best-effort byte-by-byte resynchronization after malformed or incomplete bytes; without record framing or checksums, this can mistake data bytes for a record.
-- Record checksums use CRC32 in the versioned final format. The current native header is transitional; development-only files do not require migration.
+- Startup recovery never modifies log files. It uses best-effort byte-by-byte resynchronization after malformed or incomplete bytes. Magic, version, structural checks, and CRC32 reduce false record matches, but recovery cannot prove arbitrary bytes are not a valid record.
+- Records use a fixed-width little-endian versioned format with CRC32. Populated legacy native-layout databases are rejected pending an explicit migration tool; empty unmarked databases can be initialized.
 - Rotation maintains exactly one active file and leaves immutable files readable.
 - Compaction processes immutable files, publishes complete outputs before deleting source files, and remains recoverable after interruption.
 - A store-level shared mutex allows concurrent reads and serializes writes, rotation, and compaction. A POSIX directory lock enforces one writer process; read-only opens use a shared lock.
@@ -56,9 +56,9 @@ The final API also supports `fold(callback)` for live key/value iteration and `s
 ```text
 AGENTS.md
 CMakeLists.txt
-includes/{records,entry,logfile,log_manager,recovery_manager,kvdir,crud_operations,kvstore,options}.h
-src/{records.cpp,logfile.cpp,log_manager.cpp,recovery_manager.cpp,kvdir.cpp,crud_operations.cpp,kvstore.cpp,main.cpp}
-tests/{test_record,test_logfile,test_log_manager,test_kvdir,test_crud_operations,test_kvstore,test_recovery,test_compaction,test_concurrency}.cpp
+includes/{records,record_codec,entry,logfile,log_manager,recovery_manager,kvdir,crud_operations,kvstore,options}.h
+src/{records.cpp,record_codec.cpp,logfile.cpp,log_manager.cpp,recovery_manager.cpp,kvdir.cpp,crud_operations.cpp,kvstore.cpp,main.cpp}
+tests/{test_record,test_record_codec,test_logfile,test_log_manager,test_kvdir,test_crud_operations,test_kvstore,test_recovery,test_compaction,test_concurrency}.cpp
 benchmarks/benchmark.cpp
 README.md
 ```
@@ -79,7 +79,7 @@ The standalone benchmark reports PUT operations per second; GET p50, p95, and p9
 
 ## Current implementation boundary
 
-The current implementation uses `KVStore` as a forwarding facade, `CrudOperations` for CRUD coordination, `LogManager` for the discovered log set and rotation, `CompactionManager` for manual compaction, and `RecoveryManager` for startup replay. It scans every numbered log from byte zero and does not save scan positions or modify log contents during recovery. Resynchronization after malformed bytes is best-effort because the current native record format has no marker or checksum; a false record may be accepted. Checksums, process locking, and thread safety are not implemented yet. `Options::max_file_size` defaults to 64 MiB and `Options::sync_on_put` defaults to false. With sync-on-put enabled, PUT and DELETE tombstone writes fsync their active log before returning. Explicit `sync()` flushes every log and directory metadata. Directory entries are synced during initial/rotated log creation and compaction publication/cleanup.
+The current implementation uses `KVStore` as a forwarding facade, `CrudOperations` for CRUD coordination, `LogManager` for the discovered log set and rotation, `CompactionManager` for manual compaction, `RecoveryManager` for startup replay, and `RecordCodec` for a fixed-width little-endian versioned record format with CRC32. A `FORMAT` marker prevents accidental interpretation of populated legacy databases. It scans every numbered log from byte zero and does not save scan positions or modify log contents during recovery. Resynchronization remains best-effort, although record magic, version, structural checks, and checksums reject most damaged candidates. Process locking, read-only mode, thread safety, background compaction, close, fold, stats, and benchmarks are not implemented yet. `Options::max_file_size` defaults to 64 MiB and `Options::sync_on_put` defaults to false. With sync-on-put enabled, PUT and DELETE tombstone writes fsync their active log before returning. Explicit `sync()` flushes every log and directory metadata. Directory entries are synced during initial/rotated log creation and compaction publication/cleanup.
 
 ## Development rules
 

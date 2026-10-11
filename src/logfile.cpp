@@ -2,7 +2,6 @@
 
 #include <cerrno>
 #include <cstring>
-#include <limits>
 #include <stdexcept>
 #include <utility>
 
@@ -93,34 +92,17 @@ LogFile& LogFile::operator=(LogFile&& other) noexcept {
 
 Entry LogFile::append(const Record& record) {
     if (fd == -1) throw std::runtime_error("Cannot append to a closed log file");
-    if (record.key.size() > std::numeric_limits<uint32_t>::max() ||
-        record.value.size() > std::numeric_limits<uint32_t>::max()) {
-        throw std::length_error("Record field exceeds the on-disk size limit");
-    }
-    if (record.header.type != static_cast<uint8_t>(RecordType::Put) &&
-        record.header.type != static_cast<uint8_t>(RecordType::Delete)) {
-        throw std::invalid_argument("Unknown record type");
-    }
-
-    RecordHeader header;
-    std::memset(&header, 0, sizeof(header));
-    header.key_size = static_cast<uint32_t>(record.key.size());
-    header.value_size = static_cast<uint32_t>(record.value.size());
-    header.type = record.header.type;
-    if (record.header.type == static_cast<uint8_t>(RecordType::Delete) && !record.value.empty())
-        throw std::invalid_argument("Delete record must not contain a value");
+    const auto encoded = RecordCodec::encode(record);
     const uint64_t start = write_offset;
-    const uint64_t value_pos = start + sizeof(header) + record.key.size();
+    const uint64_t value_pos = start + RecordCodec::kHeaderSize + record.key.size();
 
     // Keep the logical offset unchanged until every field has been written. A
     // retry after an error overwrites any partial bytes at this same position.
-    pwriteAll(fd, &header, sizeof(header), start);
-    pwriteAll(fd, record.key.data(), record.key.size(), start + sizeof(header));
-    pwriteAll(fd, record.value.data(), record.value.size(), value_pos);
+    pwriteAll(fd, encoded.data(), encoded.size(), start);
 
-    write_offset = value_pos + record.value.size();
+    write_offset = start + encoded.size();
     metadata.size = write_offset;
-    return Entry{metadata.file_id, value_pos, header.value_size};
+    return Entry{metadata.file_id, value_pos, static_cast<uint32_t>(record.value.size())};
 }
 
 std::string LogFile::read(const Entry& entry) const {
@@ -136,26 +118,19 @@ std::string LogFile::read(const Entry& entry) const {
 std::optional<Record> LogFile::readRecord(uint64_t offset) const {
     if (fd == -1) throw std::runtime_error("Cannot scan a closed log file");
     if (offset == metadata.size) return std::nullopt;
-    if (offset > metadata.size || metadata.size - offset < sizeof(RecordHeader))
+    if (offset > metadata.size || metadata.size - offset < RecordCodec::kHeaderSize)
         throw RecordFormatError("Truncated record header");
 
-    RecordHeader header{};
-    preadAll(fd, &header, sizeof(header), offset);
-    if (header.type != static_cast<uint8_t>(RecordType::Put) &&
-        header.type != static_cast<uint8_t>(RecordType::Delete))
-        throw RecordFormatError("Invalid record type");
-    const uint64_t body_size = static_cast<uint64_t>(header.key_size) + header.value_size;
-    if (body_size > metadata.size - offset - sizeof(header))
-        throw RecordFormatError("Truncated record body");
-    if (header.type == static_cast<uint8_t>(RecordType::Delete) && header.value_size != 0)
-        throw RecordFormatError("Delete record has a value");
-
-    Record record{header, std::string(header.key_size, '\0'), std::string(header.value_size, '\0')};
-    uint64_t body_offset = offset + sizeof(header);
-    preadAll(fd, record.key.data(), record.key.size(), body_offset);
-    body_offset += record.key.size();
-    preadAll(fd, record.value.data(), record.value.size(), body_offset);
-    return record;
+    std::vector<uint8_t> encoded(RecordCodec::kHeaderSize);
+    preadAll(fd, encoded.data(), encoded.size(), offset);
+    const uint64_t record_size = RecordCodec::encodedSizeFromHeader(encoded.data(), encoded.size());
+    if (record_size > metadata.size - offset) throw RecordFormatError("Truncated record body");
+    encoded.resize(static_cast<size_t>(record_size));
+    if (record_size > RecordCodec::kHeaderSize)
+        preadAll(fd, encoded.data() + RecordCodec::kHeaderSize,
+                 static_cast<size_t>(record_size - RecordCodec::kHeaderSize),
+                 offset + RecordCodec::kHeaderSize);
+    return RecordCodec::decode(encoded.data(), encoded.size());
 }
 
 uint64_t LogFile::size() const { return metadata.size; }
