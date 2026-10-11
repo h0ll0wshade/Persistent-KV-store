@@ -45,9 +45,9 @@ void preadAll(int fd, void* data, size_t count, uint64_t offset) {
 }
 }
 
-LogFile::LogFile(const std::string& path, uint32_t file_id, bool active)
-    : metadata{file_id, 0, active}, fd{-1}, write_offset{0} {
-    fd = ::open(path.c_str(), O_RDWR | O_CREAT, 0644);
+LogFile::LogFile(const std::string& path, uint32_t file_id, bool active, bool read_only)
+    : metadata{file_id, 0, active}, fd{-1}, write_offset{0}, read_only(read_only) {
+    fd = ::open(path.c_str(), read_only ? O_RDONLY : (O_RDWR | O_CREAT), 0644);
     if (fd == -1) throw ioError("open failed");
 
     struct stat info {};
@@ -72,10 +72,11 @@ LogFile::~LogFile() {
 }
 
 LogFile::LogFile(LogFile&& other) noexcept
-    : metadata(other.metadata), fd(other.fd), write_offset(other.write_offset) {
+    : metadata(other.metadata), fd(other.fd), write_offset(other.write_offset), read_only(other.read_only) {
     other.fd = -1;
     other.metadata = FileMetadata{0, 0, false};
     other.write_offset = 0;
+    other.read_only = true;
 }
 
 LogFile& LogFile::operator=(LogFile&& other) noexcept {
@@ -84,14 +85,17 @@ LogFile& LogFile::operator=(LogFile&& other) noexcept {
     metadata = other.metadata;
     fd = other.fd;
     write_offset = other.write_offset;
+    read_only = other.read_only;
     other.fd = -1;
     other.metadata = FileMetadata{0, 0, false};
     other.write_offset = 0;
+    other.read_only = true;
     return *this;
 }
 
 Entry LogFile::append(const Record& record) {
     if (fd == -1) throw std::runtime_error("Cannot append to a closed log file");
+    if (read_only) throw std::runtime_error("Cannot append to a read-only log file");
     const auto encoded = RecordCodec::encode(record);
     const uint64_t start = write_offset;
     const uint64_t value_pos = start + RecordCodec::kHeaderSize + record.key.size();
@@ -138,8 +142,16 @@ uint32_t LogFile::fileId() const { return metadata.file_id; }
 
 void LogFile::sync() {
     if (fd == -1) throw std::runtime_error("Cannot sync a closed log file");
+    if (read_only) return;
     while (::fsync(fd) == -1) {
         if (errno == EINTR) continue;
         throw ioError("fsync failed");
     }
+}
+
+void LogFile::close() {
+    if (fd == -1) return;
+    const int closing_fd = fd;
+    fd = -1;
+    if (::close(closing_fd) == -1) throw ioError("close failed");
 }

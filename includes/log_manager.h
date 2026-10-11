@@ -20,6 +20,7 @@ public:
     std::string read(const Entry& entry) const;
     std::vector<LogFile*> filesInOrder() const;
     void syncAll();
+    void closeAll();
 
     void rotate();
     uint32_t highestFileId() const;
@@ -34,6 +35,7 @@ private:
     uint32_t active_file_id;
     std::string directory;
     uint64_t max_file_size;
+    bool read_only;
 
     void rotateLogFile();
 };

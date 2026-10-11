@@ -2,6 +2,8 @@
 #include "test_support.h"
 
 #include <algorithm>
+#include <filesystem>
+#include <stdexcept>
 #include <type_traits>
 
 static_assert(!std::is_copy_constructible<KVStore>::value, "KVStore must not be copyable");
@@ -25,4 +27,51 @@ int main() {
     store.erase("absent");
     check(store.listKeys().size() == 1, "deleting absent key should leave other keys intact");
     store.sync();
+    store.close();
+    store.close();
+    bool closed_rejected = false;
+    try { (void)store.get("fruit"); }
+    catch (const std::runtime_error&) { closed_rejected = true; }
+    check(closed_rejected, "operations after close should fail clearly");
+
+    TempDirectory readonly_directory;
+    {
+        KVStore writer(readonly_directory.path());
+        writer.put("read", "only");
+        writer.sync();
+        writer.close();
+    }
+    std::vector<std::string> before;
+    for (const auto& item : std::filesystem::directory_iterator(readonly_directory.path()))
+        before.push_back(item.path().filename().string());
+    std::sort(before.begin(), before.end());
+    Options readonly_options;
+    readonly_options.read_only = true;
+    {
+        KVStore reader(readonly_directory.path(), readonly_options);
+        check(reader.get("read") == std::optional<std::string>("only"),
+              "read-only open should recover and serve existing values");
+        bool write_rejected = false;
+        try { reader.put("new", "value"); }
+        catch (const std::runtime_error&) { write_rejected = true; }
+        check(write_rejected, "read-only writes should fail");
+        bool erase_rejected = false;
+        try { reader.erase("read"); }
+        catch (const std::runtime_error&) { erase_rejected = true; }
+        check(erase_rejected, "read-only deletes should fail");
+        reader.close();
+    }
+    std::vector<std::string> after;
+    for (const auto& item : std::filesystem::directory_iterator(readonly_directory.path()))
+        after.push_back(item.path().filename().string());
+    std::sort(after.begin(), after.end());
+    check(before == after, "read-only access should not create or remove database files");
+
+    TempDirectory lock_directory;
+    KVStore exclusive(lock_directory.path());
+    bool second_writer_rejected = false;
+    try { KVStore competing(lock_directory.path()); }
+    catch (const std::runtime_error&) { second_writer_rejected = true; }
+    check(second_writer_rejected, "a second writer process handle should be rejected");
+    exclusive.close();
 }

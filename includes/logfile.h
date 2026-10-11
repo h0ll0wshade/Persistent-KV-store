@@ -20,9 +20,10 @@ private:
     FileMetadata metadata;
     int fd;
     uint64_t write_offset;
+    bool read_only;
 
 public:
-    LogFile(const std::string& path, uint32_t file_id, bool active);
+    LogFile(const std::string& path, uint32_t file_id, bool active, bool read_only = false);
     ~LogFile();
 
     //deleted copy semantics
@@ -38,4 +39,5 @@ public:
     uint64_t size() const;
     uint32_t fileId() const;
     void sync();
+    void close();
 };

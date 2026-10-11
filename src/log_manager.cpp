@@ -70,7 +70,7 @@ std::filesystem::path logPath(const std::filesystem::path& directory, uint32_t f
 }
 
 void ensureFormatMarker(const std::filesystem::path& directory,
-                        const std::vector<DiscoveredLog>& discovered) {
+                        const std::vector<DiscoveredLog>& discovered, bool read_only) {
     constexpr std::array<uint8_t, 8> marker{{'B', 'K', 'V', 'F', 1, 0, 0, 0}};
     const auto marker_path = directory / "FORMAT";
     std::error_code error;
@@ -92,6 +92,9 @@ void ensureFormatMarker(const std::filesystem::path& directory,
         if (size != 0)
             throw std::runtime_error("Database contains legacy records and has no supported FORMAT marker; migration is not available");
     }
+
+    if (read_only)
+        throw std::runtime_error("Read-only open requires an existing FORMAT marker");
 
     std::string pattern = (directory / ".FORMAT-XXXXXX").string();
     std::vector<char> writable(pattern.begin(), pattern.end());
@@ -159,21 +162,29 @@ void createDirectoriesDurably(const std::filesystem::path& directory) {
 }
 
 LogManager::LogManager(const std::string& directory_path, const Options& options)
-    : active_file_id(0), directory(directory_path), max_file_size(options.max_file_size) {
+    : active_file_id(0), directory(directory_path), max_file_size(options.max_file_size),
+      read_only(options.read_only) {
     if (max_file_size == 0) throw std::invalid_argument("max_file_size must be greater than zero");
     const std::filesystem::path root(directory_path);
-    createDirectoriesDurably(root);
+    if (read_only) {
+        if (!std::filesystem::is_directory(root))
+            throw std::runtime_error("Read-only database directory does not exist");
+    } else {
+        createDirectoriesDurably(root);
+    }
 
     auto discovered = discoverLogs(root);
-    ensureFormatMarker(root, discovered);
+    ensureFormatMarker(root, discovered, read_only);
     const bool creating_initial_log = discovered.empty();
+    if (creating_initial_log && read_only)
+        throw std::runtime_error("Read-only database has no log files");
     if (creating_initial_log) discovered.push_back(DiscoveredLog{1, logPath(root, 1)});
 
     active_file_id = discovered.back().file_id;
     for (const auto& log : discovered) {
         files.emplace(log.file_id,
                       std::make_unique<LogFile>(log.path.string(), log.file_id,
-                                                log.file_id == active_file_id));
+                                                log.file_id == active_file_id, read_only));
     }
     if (creating_initial_log) syncDirectory(directory);
 }
@@ -222,6 +233,7 @@ const std::string& LogManager::directoryPath() const {
 }
 
 void LogManager::createActiveLog(uint32_t file_id) {
+    if (read_only) throw std::runtime_error("Cannot create a log in read-only mode");
     if (file_id <= highestFileId())
         throw std::invalid_argument("New active log ID must be greater than existing IDs");
     const auto path = logPath(directory, file_id);
@@ -266,5 +278,9 @@ std::vector<LogFile*> LogManager::filesInOrder() const {
 
 void LogManager::syncAll() {
     for (auto& item : files) item.second->sync();
-    syncDirectory(directory);
+    if (!read_only) syncDirectory(directory);
+}
+
+void LogManager::closeAll() {
+    for (auto& item : files) item.second->close();
 }

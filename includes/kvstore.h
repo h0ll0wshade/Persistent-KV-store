@@ -31,4 +31,5 @@ public:
     // Flush all log files and database-directory metadata.
     void sync();
     void compact();
+    void close();
 };

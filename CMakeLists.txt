@@ -7,6 +7,7 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 
 add_library(bitcask_kv
     src/compaction_manager.cpp
+    src/database_lock.cpp
     src/directory_sync.cpp
     src/logfile.cpp
     src/record_codec.cpp
