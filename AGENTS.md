@@ -59,7 +59,7 @@ CMakeLists.txt
 includes/{records,record_codec,entry,logfile,log_manager,recovery_manager,kvdir,crud_operations,kvstore,options,database_lock,store_concurrency,background_compaction_worker,kv_stats,stats_manager}.h
 src/{records.cpp,record_codec.cpp,logfile.cpp,log_manager.cpp,recovery_manager.cpp,kvdir.cpp,crud_operations.cpp,kvstore.cpp,database_lock.cpp,background_compaction_worker.cpp,stats_manager.cpp,main.cpp}
 tests/{test_record,test_record_codec,test_logfile,test_log_manager,test_kvdir,test_crud_operations,test_kvstore,test_recovery,test_compaction,test_concurrency}.cpp
-benchmarks/benchmark.cpp
+benchmarks/benchmark.cpp (optional `BITCASK_BUILD_BENCHMARKS` target)
 README.md
 ```
 
@@ -69,9 +69,9 @@ Names may evolve when a clearer module boundary is needed. Keep the implementati
 
 1. **Core storage:** CMake/CTest, Record and Entry foundations, robust LogFile, KeyDir, one `CrudOperations` component, and a forwarding KVStore facade. Verify serialization, offsets, value reads, index behavior, failed-append ordering, and CRUD.
 2. **Persistence:** discover numbered logs, replay all records to rebuild the index, route reads by file ID, and test restart behavior. Recovery starts over from byte zero on every open and does not truncate or rewrite logs.
-3. **Rotation and compaction:** log rotation and synchronous manual compaction are implemented in separate `LogManager` and `CompactionManager` components; add an independent background worker that schedules compaction later.
-4. **Reliability and concurrency:** keep checksum/encoding rules in the record codec, sync policy in durability handling, process locking in an RAII lock component, and thread coordination in a dedicated synchronization boundary.
-5. **API and measurement:** add close/fold/stats, benchmark PUT throughput, GET latency percentiles, recovery and compaction time/space, thread scaling, sync overhead, and documentation of tradeoffs.
+3. **Rotation and compaction:** log rotation and synchronous manual compaction use separate `LogManager` and `CompactionManager` components. An opt-in background worker schedules the same compaction path after four immutable logs accumulate.
+4. **Reliability and concurrency:** the record codec provides versioned CRC32 records, durability options control sync behavior, `DatabaseLock` provides process locking, and `StoreConcurrency` coordinates concurrent access.
+5. **API and measurement:** `close`, `fold`, and `stats` are implemented. The optional benchmark measures PUT throughput, GET latency percentiles, recovery and compaction time/space, thread scaling, and sync overhead. README work remains intentionally deferred.
 
 ## Benchmark deliverables
 
@@ -79,7 +79,7 @@ The standalone benchmark reports PUT operations per second; GET p50, p95, and p9
 
 ## Current implementation boundary
 
-The current implementation uses `KVStore` as a forwarding facade, `CrudOperations` for CRUD coordination, `LogManager` for the discovered log set and rotation, `CompactionManager` for manual compaction, `RecoveryManager` for startup replay, and `RecordCodec` for a fixed-width little-endian versioned record format with CRC32. A `FORMAT` marker prevents accidental interpretation of populated legacy databases. It scans every numbered log from byte zero and does not save scan positions or modify log contents during recovery. Resynchronization remains best-effort, although record magic, version, structural checks, and checksums reject most damaged candidates. Read-only open, process locking, and explicit idempotent `close()` are implemented. `StoreConcurrency` permits concurrent reads and serializes mutations, sync, compaction, and close. Opt-in background compaction schedules the same compaction path once at least four immutable logs exist, and close stops and joins the worker. `fold` and `stats` are implemented. `Options::max_file_size` defaults to 64 MiB and `Options::sync_on_put` defaults to false. With sync-on-put enabled, PUT and DELETE tombstone writes fsync their active log before returning. Explicit `sync()` flushes every log and directory metadata. Directory entries are synced during initial/rotated log creation and compaction publication/cleanup.
+The current implementation uses `KVStore` as a forwarding facade, `CrudOperations` for CRUD coordination, `LogManager` for the discovered log set and rotation, `CompactionManager` for manual compaction, `RecoveryManager` for startup replay, and `RecordCodec` for a fixed-width little-endian versioned record format with CRC32. A `FORMAT` marker prevents accidental interpretation of populated legacy databases. It scans every numbered log from byte zero and does not save scan positions or modify log contents during recovery. Resynchronization remains best-effort, although record magic, version, structural checks, and checksums reject most damaged candidates. Read-only open, process locking, and explicit idempotent `close()` are implemented. `StoreConcurrency` permits concurrent reads and serializes mutations, sync, compaction, and close. Opt-in background compaction schedules the same compaction path once at least four immutable logs exist, and close stops and joins the worker. `fold` and `stats` are implemented. The optional standalone benchmark reports PUT throughput, GET p50/p95/p99 latency, recovery and compaction time/space, throughput by thread count, sync-on-write cost, and machine/build/workload details. `Options::max_file_size` defaults to 64 MiB and `Options::sync_on_put` defaults to false. With sync-on-put enabled, PUT and DELETE tombstone writes fsync their active log before returning. Explicit `sync()` flushes every log and directory metadata. Directory entries are synced during initial/rotated log creation and compaction publication/cleanup.
 
 ## Development rules
 

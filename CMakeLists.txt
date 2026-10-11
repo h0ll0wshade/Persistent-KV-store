@@ -1,6 +1,8 @@
 cmake_minimum_required(VERSION 3.16)
 project(bitcask_kv LANGUAGES CXX)
 
+option(BITCASK_BUILD_BENCHMARKS "Build the standalone benchmark executable" OFF)
+
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
@@ -35,4 +37,10 @@ if(BUILD_TESTING)
         target_compile_options(test_${test_name} PRIVATE -Wall -Wextra -Wpedantic)
         add_test(NAME ${test_name} COMMAND test_${test_name})
     endforeach()
+endif()
+
+if(BITCASK_BUILD_BENCHMARKS)
+    add_executable(bitcask_benchmark benchmarks/benchmark.cpp)
+    target_link_libraries(bitcask_benchmark PRIVATE bitcask_kv)
+    target_compile_options(bitcask_benchmark PRIVATE -Wall -Wextra -Wpedantic)
 endif()
