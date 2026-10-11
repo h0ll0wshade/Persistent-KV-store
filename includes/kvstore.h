@@ -6,11 +6,13 @@
 #include <vector>
 
 #include "options.h"
+#include "store_concurrency.h"
 
 class KVStore {
 private:
     struct Impl;
     std::unique_ptr<Impl> impl;
+    mutable StoreConcurrency concurrency;
 
 public:
     explicit KVStore(const std::string& directory, const Options& options = {});

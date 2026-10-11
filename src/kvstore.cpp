@@ -39,46 +39,60 @@ KVStore::KVStore(const std::string& directory, const Options& options)
 KVStore::~KVStore() = default;
 
 void KVStore::put(const std::string& key, const std::string& value) {
-    if (!impl) throw std::runtime_error("KVStore is closed");
-    impl->requireWritable();
-    impl->crud.put(key, value);
+    concurrency.withWrite([&] {
+        if (!impl) throw std::runtime_error("KVStore is closed");
+        impl->requireWritable();
+        impl->crud.put(key, value);
+    });
 }
 
 std::optional<std::string> KVStore::get(const std::string& key) const {
-    if (!impl) throw std::runtime_error("KVStore is closed");
-    impl->requireOpen();
-    return impl->crud.get(key);
+    return concurrency.withRead([&] {
+        if (!impl) throw std::runtime_error("KVStore is closed");
+        impl->requireOpen();
+        return impl->crud.get(key);
+    });
 }
 
 void KVStore::erase(const std::string& key) {
-    if (!impl) throw std::runtime_error("KVStore is closed");
-    impl->requireWritable();
-    impl->crud.erase(key);
+    concurrency.withWrite([&] {
+        if (!impl) throw std::runtime_error("KVStore is closed");
+        impl->requireWritable();
+        impl->crud.erase(key);
+    });
 }
 
 std::vector<std::string> KVStore::listKeys() const {
-    if (!impl) throw std::runtime_error("KVStore is closed");
-    impl->requireOpen();
-    return impl->crud.listKeys();
+    return concurrency.withRead([&] {
+        if (!impl) throw std::runtime_error("KVStore is closed");
+        impl->requireOpen();
+        return impl->crud.listKeys();
+    });
 }
 
 void KVStore::sync() {
-    if (!impl) throw std::runtime_error("KVStore is closed");
-    impl->requireOpen();
-    impl->crud.sync();
+    concurrency.withWrite([&] {
+        if (!impl) throw std::runtime_error("KVStore is closed");
+        impl->requireOpen();
+        impl->crud.sync();
+    });
 }
 
 void KVStore::compact() {
-    if (!impl) throw std::runtime_error("KVStore is closed");
-    impl->requireWritable();
-    impl->compaction.compact();
+    concurrency.withWrite([&] {
+        if (!impl) throw std::runtime_error("KVStore is closed");
+        impl->requireWritable();
+        impl->compaction.compact();
+    });
 }
 
 void KVStore::close() {
-    if (!impl) return;
-    impl->requireOpen();
-    if (!impl->read_only) impl->crud.sync();
-    impl->logs.closeAll();
-    impl->closed = true;
-    impl.reset();
+    concurrency.withWrite([&] {
+        if (!impl) return;
+        impl->requireOpen();
+        if (!impl->read_only) impl->crud.sync();
+        impl->logs.closeAll();
+        impl->closed = true;
+        impl.reset();
+    });
 }
