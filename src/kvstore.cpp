@@ -7,6 +7,7 @@
 #include "kvdir.h"
 #include "log_manager.h"
 #include "recovery_manager.h"
+#include "stats_manager.h"
 
 // Composition and lifetime owner only. Operation behavior lives in CrudOperations.
 struct KVStore::Impl {
@@ -15,6 +16,7 @@ struct KVStore::Impl {
     LogManager logs;
     RecoveryManager recovery;
     CompactionManager compaction;
+    StatsManager stats;
     CrudOperations crud;
     bool read_only;
     std::unique_ptr<BackgroundCompactionWorker> worker;
@@ -22,7 +24,8 @@ struct KVStore::Impl {
     explicit Impl(const std::string& directory, const Options& options,
                   StoreConcurrency& store_concurrency)
         : process_lock(directory, options.read_only), keydir(), logs(directory, options), recovery(),
-          compaction(keydir, logs), crud(keydir, logs, options), read_only(options.read_only) {
+          compaction(keydir, logs), stats(keydir, logs), crud(keydir, logs, options),
+          read_only(options.read_only) {
         recovery.recover(logs, keydir);
         if (options.enable_background_compaction && !read_only) {
             worker = std::make_unique<BackgroundCompactionWorker>([this, &store_concurrency] {
@@ -121,4 +124,31 @@ void KVStore::close() {
         impl.reset();
     });
     if (worker_error) std::rethrow_exception(worker_error);
+}
+
+void KVStore::fold(const std::function<void(const std::string&, const std::string&)>& callback) const {
+    if (!callback) throw std::invalid_argument("fold callback must be callable");
+    const auto values = concurrency.withRead([&] {
+        if (!impl) throw std::runtime_error("KVStore is closed");
+        impl->requireOpen();
+        if (impl->worker) impl->worker->rethrowIfFailed();
+        std::vector<std::pair<std::string, std::string>> snapshot;
+        const auto keys = impl->crud.listKeys();
+        snapshot.reserve(keys.size());
+        for (const auto& key : keys) {
+            const auto value = impl->crud.get(key);
+            if (value) snapshot.emplace_back(key, *value);
+        }
+        return snapshot;
+    });
+    for (const auto& item : values) callback(item.first, item.second);
+}
+
+KVStats KVStore::stats() const {
+    return concurrency.withRead([&] {
+        if (!impl) throw std::runtime_error("KVStore is closed");
+        impl->requireOpen();
+        if (impl->worker) impl->worker->rethrowIfFailed();
+        return impl->stats.collect();
+    });
 }

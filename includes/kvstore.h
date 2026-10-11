@@ -2,11 +2,13 @@
 
 #include <memory>
 #include <mutex>
+#include <functional>
 #include <optional>
 #include <string>
 #include <vector>
 
 #include "options.h"
+#include "kv_stats.h"
 #include "store_concurrency.h"
 
 class KVStore {
@@ -36,4 +38,6 @@ public:
     void sync();
     void compact();
     void close();
+    void fold(const std::function<void(const std::string&, const std::string&)>& callback) const;
+    KVStats stats() const;
 };
