@@ -1,6 +1,7 @@
 #pragma once
 
 #include <memory>
+#include <mutex>
 #include <optional>
 #include <string>
 #include <vector>
@@ -11,8 +12,9 @@
 class KVStore {
 private:
     struct Impl;
-    std::unique_ptr<Impl> impl;
     mutable StoreConcurrency concurrency;
+    mutable std::mutex close_mutex;
+    std::unique_ptr<Impl> impl;
 
 public:
     explicit KVStore(const std::string& directory, const Options& options = {});

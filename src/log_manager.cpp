@@ -228,6 +228,10 @@ uint64_t LogManager::maxFileSize() const {
     return max_file_size;
 }
 
+size_t LogManager::immutableFileCount() const {
+    return files.empty() ? 0 : files.size() - 1;
+}
+
 const std::string& LogManager::directoryPath() const {
     return directory;
 }

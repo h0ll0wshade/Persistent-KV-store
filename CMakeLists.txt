@@ -6,6 +6,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
 add_library(bitcask_kv
+    src/background_compaction_worker.cpp
     src/compaction_manager.cpp
     src/database_lock.cpp
     src/directory_sync.cpp
@@ -27,7 +28,7 @@ target_compile_options(bitcask_demo PRIVATE -Wall -Wextra -Wpedantic)
 
 include(CTest)
 if(BUILD_TESTING)
-    foreach(test_name IN ITEMS record record_codec logfile kvdir crud_operations recovery kvstore rotation compaction durability concurrency)
+    foreach(test_name IN ITEMS record record_codec logfile kvdir crud_operations recovery kvstore rotation compaction durability concurrency background_compaction)
         add_executable(test_${test_name} tests/test_${test_name}.cpp)
         target_link_libraries(test_${test_name} PRIVATE bitcask_kv)
         target_compile_options(test_${test_name} PRIVATE -Wall -Wextra -Wpedantic)

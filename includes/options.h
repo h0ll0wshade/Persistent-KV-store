@@ -8,4 +8,6 @@ struct Options {
     bool sync_on_put = false;
     // Open existing files without creating or modifying database data.
     bool read_only = false;
+    // Compact automatically when at least four immutable logs are available.
+    bool enable_background_compaction = false;
 };

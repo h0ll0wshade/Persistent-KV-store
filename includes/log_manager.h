@@ -25,6 +25,7 @@ public:
     void rotate();
     uint32_t highestFileId() const;
     uint64_t maxFileSize() const;
+    size_t immutableFileCount() const;
     const std::string& directoryPath() const;
     void createActiveLog(uint32_t file_id);
     void addImmutableLog(uint32_t file_id, const std::string& path);
