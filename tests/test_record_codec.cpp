@@ -1,3 +1,4 @@
+// Tests record encoding, decoding, format validation, and checksum rejection.
 #include "record_codec.h"
 #include "test_support.h"
 

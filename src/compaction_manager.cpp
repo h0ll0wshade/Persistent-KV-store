@@ -1,3 +1,4 @@
+// Copies current live records to published logs, then removes obsolete logs.
 #include "compaction_manager.h"
 
 #include "directory_sync.h"

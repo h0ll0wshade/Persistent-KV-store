@@ -1,3 +1,4 @@
+// Calculates live and reclaimable bytes by scanning log contents.
 #include "stats_manager.h"
 
 #include "kvdir.h"

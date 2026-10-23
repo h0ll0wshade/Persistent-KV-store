@@ -1,5 +1,7 @@
 #pragma once
 
+// Defines the in-memory representation and types of PUT and DELETE records.
+
 #include <cstdint>
 #include <string>
 

@@ -1,3 +1,4 @@
+// Exercises the public API, close behavior, read-only access, and process locks.
 #include "kvstore.h"
 #include "test_support.h"
 

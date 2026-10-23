@@ -1,3 +1,4 @@
+// Implements the in-memory key-to-latest-entry hash index.
 #include "kvdir.h"
 
 std::optional<Entry> KeyDir::get(const std::string& key) const {

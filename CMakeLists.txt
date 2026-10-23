@@ -1,3 +1,4 @@
+# Configures the C++17 library, interactive demo, tests, and optional benchmark.
 cmake_minimum_required(VERSION 3.16)
 project(bitcask_kv LANGUAGES CXX)
 

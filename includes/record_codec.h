@@ -1,5 +1,7 @@
 #pragma once
 
+// Declares the versioned on-disk record encoder, decoder, and checksum checks.
+
 #include "records.h"
 
 #include <cstddef>

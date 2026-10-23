@@ -1,5 +1,7 @@
 #pragma once
 
+// Rewrites immutable logs while preserving only current live values.
+
 class KeyDir;
 class LogManager;
 

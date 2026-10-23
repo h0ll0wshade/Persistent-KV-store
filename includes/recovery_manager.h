@@ -1,5 +1,7 @@
 #pragma once
 
+// Declares log replay that rebuilds the in-memory key index on open.
+
 class KeyDir;
 class LogManager;
 

@@ -1,3 +1,4 @@
+// Implements PUT, GET, DELETE, key listing, and explicit log syncing.
 #include "crud_operations.h"
 
 #include "records.h"

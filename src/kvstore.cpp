@@ -1,3 +1,4 @@
+// Composes storage components and forwards the public KVStore API to them.
 #include "kvstore.h"
 
 #include "compaction_manager.h"

@@ -1,3 +1,4 @@
+// Tests key insertion, lookup, deletion, and enumeration in KeyDir.
 #include "kvdir.h"
 #include "test_support.h"
 

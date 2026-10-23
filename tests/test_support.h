@@ -1,5 +1,7 @@
 #pragma once
 
+// Provides shared assertions and temporary-directory helpers for tests.
+
 #include <filesystem>
 #include <cstdlib>
 #include <stdexcept>

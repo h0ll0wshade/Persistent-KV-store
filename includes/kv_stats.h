@@ -1,5 +1,7 @@
 #pragma once
 
+// Holds aggregate log size, live-key, and reclaimable-space metrics.
+
 #include <cstddef>
 #include <cstdint>
 

@@ -1,3 +1,4 @@
+// Measures store throughput, latency, recovery, compaction, threading, and sync cost.
 #include "kvstore.h"
 
 #include <algorithm>

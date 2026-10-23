@@ -1,3 +1,4 @@
+// Implements wake-up, failure reporting, and orderly shutdown for compaction work.
 #include "background_compaction_worker.h"
 
 #include <utility>

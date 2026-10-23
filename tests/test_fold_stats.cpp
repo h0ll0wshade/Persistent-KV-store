@@ -1,3 +1,4 @@
+// Tests snapshot iteration and storage metrics before and after compaction.
 #include "kvstore.h"
 #include "test_support.h"
 

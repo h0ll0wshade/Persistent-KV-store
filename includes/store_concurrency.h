@@ -1,5 +1,7 @@
 #pragma once
 
+// Provides shared read access and exclusive write access around store calls.
+
 #include <mutex>
 #include <shared_mutex>
 #include <utility>

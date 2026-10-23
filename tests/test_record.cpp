@@ -1,3 +1,4 @@
+// Verifies records can be appended and read through the LogFile interface.
 #include "logfile.h"
 #include "record_codec.h"
 #include "test_support.h"

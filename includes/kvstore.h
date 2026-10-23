@@ -1,5 +1,7 @@
 #pragma once
 
+// Declares the public, thread-safe API for opening and operating the store.
+
 #include <memory>
 #include <mutex>
 #include <functional>

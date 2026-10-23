@@ -1,3 +1,4 @@
+// Tests CRUD coordination and index updates after log appends.
 #include "crud_operations.h"
 #include "test_support.h"
 

@@ -1,3 +1,4 @@
+// Exercises concurrent reads and writes, then checks recovery of the results.
 #include "kvstore.h"
 #include "test_support.h"
 

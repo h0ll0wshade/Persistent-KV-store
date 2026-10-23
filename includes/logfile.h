@@ -1,5 +1,7 @@
 #pragma once
 
+// Declares RAII file I/O for appending and reading serialized log records.
+
 #include "entry.h"
 #include "record_codec.h"
 #include "records.h"

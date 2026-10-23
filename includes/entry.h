@@ -1,5 +1,7 @@
 #pragma once
 
+// Identifies the byte range containing a value in a numbered log file.
+
 #include <cstdint>
 
 struct Entry {

@@ -1,3 +1,4 @@
+// Verifies the background worker compacts stale values and remains recoverable.
 #include "kvstore.h"
 #include "test_support.h"
 

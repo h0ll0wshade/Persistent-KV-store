@@ -1,5 +1,7 @@
 #pragma once
 
+// Provides shared-reader or exclusive-writer process locking for a database.
+
 #include <string>
 
 // Holds a process-level shared (reader) or exclusive (writer) directory lock.

@@ -1,3 +1,4 @@
+// Verifies size-triggered log rotation and reads across multiple log files.
 #include "kvstore.h"
 #include "records.h"
 #include "record_codec.h"

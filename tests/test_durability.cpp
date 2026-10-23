@@ -1,3 +1,4 @@
+// Verifies sync-on-write and explicit sync durability behavior.
 #include "kvstore.h"
 #include "records.h"
 #include "record_codec.h"

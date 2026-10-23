@@ -1,5 +1,7 @@
 #pragma once
 
+// Runs scheduled compaction work on a stoppable background thread.
+
 #include <condition_variable>
 #include <exception>
 #include <functional>

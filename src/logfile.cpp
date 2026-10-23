@@ -1,3 +1,4 @@
+// Implements positional log-file I/O, record appends, reads, and syncing.
 #include "logfile.h"
 
 #include <cerrno>

@@ -1,3 +1,4 @@
+// Flushes directory metadata so file creation and removal survive a crash.
 #include "directory_sync.h"
 
 #include <cerrno>

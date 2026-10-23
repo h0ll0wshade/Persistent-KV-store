@@ -1,3 +1,4 @@
+// Verifies manual compaction keeps current values and safely replaces old logs.
 #include "kvstore.h"
 #include "records.h"
 #include "record_codec.h"

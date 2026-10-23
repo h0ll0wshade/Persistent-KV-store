@@ -1,5 +1,7 @@
 #pragma once
 
+// Coordinates CRUD calls between the in-memory index and log manager.
+
 #include "kvdir.h"
 #include "log_manager.h"
 #include "options.h"

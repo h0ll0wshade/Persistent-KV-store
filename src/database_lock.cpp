@@ -1,3 +1,4 @@
+// Acquires and releases the POSIX lock associated with a database directory.
 #include "database_lock.h"
 
 #include <cerrno>

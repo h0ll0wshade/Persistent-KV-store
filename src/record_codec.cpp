@@ -1,3 +1,4 @@
+// Encodes and validates versioned records with CRC32 checksums.
 #include "record_codec.h"
 
 #include <cstring>

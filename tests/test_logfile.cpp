@@ -1,3 +1,4 @@
+// Tests log serialization, positional reads, offsets, and file ownership rules.
 #include "logfile.h"
 #include "test_support.h"
 

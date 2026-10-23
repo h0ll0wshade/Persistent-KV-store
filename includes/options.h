@@ -1,5 +1,7 @@
 #pragma once
 
+// Defines configurable database size, durability, access, and compaction options.
+
 #include <cstdint>
 
 struct Options {

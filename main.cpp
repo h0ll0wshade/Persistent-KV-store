@@ -1,3 +1,4 @@
+// Provides a small interactive command-line client for the KVStore API.
 #include "kvstore.h"
 
 #include <algorithm>

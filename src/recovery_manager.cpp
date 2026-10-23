@@ -1,3 +1,4 @@
+// Replays records from all logs to reconstruct the live-key index.
 #include "recovery_manager.h"
 
 #include "kvdir.h"

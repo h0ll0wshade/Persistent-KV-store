@@ -1,3 +1,4 @@
+// Tests restart replay, damaged-record recovery, and non-mutating scans.
 #include "kvstore.h"
 #include "logfile.h"
 #include "test_support.h"

@@ -1,5 +1,7 @@
 #pragma once
 
+// Declares log discovery, file-ID routing, append, rotation, and syncing.
+
 #include "logfile.h"
 #include "options.h"
 

@@ -1,5 +1,7 @@
 #pragma once
 
+// Declares the in-memory map from live keys to their latest log entries.
+
 #include "entry.h"
 
 #include <optional>

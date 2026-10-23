@@ -1,3 +1,4 @@
+// Discovers numbered logs, routes I/O, rotates files, and manages format setup.
 #include "log_manager.h"
 
 #include "directory_sync.h"

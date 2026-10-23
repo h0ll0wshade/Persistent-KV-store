@@ -1,5 +1,7 @@
 #pragma once
 
+// Declares collection of storage metrics by comparing logs with the key index.
+
 #include "kv_stats.h"
 
 class KeyDir;
